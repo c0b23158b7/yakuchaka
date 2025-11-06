@@ -1,0 +1,11 @@
+# ゲーム定数定義
+
+ITEM = 1
+HEAL = 2
+TRAP = 3
+RTRAP = 4
+DTRAP = 5
+FLAG = 6
+WALL = -1
+
+GAME_ENDER = 0

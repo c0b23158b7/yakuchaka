@@ -1,0 +1,673 @@
+import random
+
+ITEM = 1
+HEAL = 2
+TRAP = 3
+RTRAP = 4
+DTRAP = 5
+FLAG = 6
+WALL = -1
+
+GAME_ENDER = 0
+
+
+class Player:
+    def __init__(self, hp, x, y):
+        self.max_hp =hp
+        self.hp = hp
+        self.x = x
+        self.y = y
+        self.items = []
+        self.movement = 0
+        self.avoid_trap = False
+        self.only_one = False
+        self.minus_three = 0
+        self.chaka = False
+    
+    def RollDice(self):
+        puls = random.randrange(1,4)
+        self.movement += puls
+        if(self.only_one == True):
+            self.movement = 1
+            self.only_one = False
+
+        print(f"「{self.movement}」が出た!")
+        if(self.minus_three > 0):
+            self.movement -= 3
+            if(self.movement <= 0):
+                self.movement = -1
+            self.minus_three -= 1
+            print("トラップの効果で出目が-3された!")
+    
+    def UseItem(self, index, board):
+        if(self.items[index] == 1):
+            print("HPを全回復した!")
+            self.hp = self.max_hp
+            del self.items[index]
+        elif(self.items[index] == 2):
+            print("このターン踏んだトラップを無効化!")
+            self.avoid_trap = True
+            del self.items[index]
+        elif(self.items[index] == 3):
+            print("このアイテムは自動発動なので使用できない")
+        elif(self.items[index] == 4):
+            print("最大HPが5アップ!")
+            self.max_hp += 5
+            del self.items[index]
+        elif(self.items[index] == 5):
+            print("1マス移動!(ターンを消費しない)")
+            self.Move(board)
+            del self.items[index]
+        
+    def Move(self, board):
+        while(True):
+            print("移動方向を入力してください(↑:w ←:a ↓:s →:d)")
+            act = input().strip()
+            if(act == "w"):
+                if(self.y > 0):
+                    if(board[self.y - 1][self.x] != WALL):
+                        self.y += -1
+                        break
+                print("その方向には移動できない")
+            elif(act == "a"):
+                if (self.x > 0):
+                    if(board[self.y][self.x - 1] != WALL):
+                        self.x += -1
+                        break
+                print("その方向には移動できない")
+            elif(act == "s"):
+                if(self.y < len(board) - 1):
+                    if(board[self.y + 1][self.x] != WALL):
+                        self.y += 1
+                        break
+                print("その方向には移動できない")
+            elif(act == "d"):
+                if(self.x < len(board[self.y]) - 1):
+                    if(board[self.y][self.x + 1] != WALL):
+                        self.x += 1
+                        break
+                print("その方向には移動できない")
+            else:
+                print("無効な入力を検知")
+        
+    def Action(self, board):
+        while(True):
+            print("行動を入力してください")
+            print("サイコロ:r")
+            print("アイテム:i")
+            act = input().strip()
+            if(act == "r"):
+                self.RollDice()
+                break
+            elif(act == "i"):
+                if(len(self.items) == 0):
+                    print("アイテムを所持していません")
+                else:
+                    print("使用するアイテムの番号を入力してください")
+                    for i in range(len(player.items)):
+                        print(f"{i+1}: ", end="")
+                        if(player.items[i] == 1):
+                            print("止血剤: HPを全回復")
+                        elif(player.items[i] == 2):
+                            print("安全靴: このアイテムを使ったターン、罠を無効化")
+                        elif(player.items[i] == 3):
+                            print("親子の絆: 死んだとき、HP1で耐え、ランダムな場所にテレポート")
+                        elif(player.items[i] == 4):
+                            print("ドス: 最大HP上昇")
+                        elif(player.items[i] == 5):
+                            print("セグウェイ: ターンを消費せず1マス移動")
+                    use = int(input())
+                    if(use <= len(self.items)):
+                        self.UseItem(use-1, board)
+                        break
+                    else:
+                        print("無効な入力です")
+                        return
+            elif(act == "wwssadadba"):
+                print("隠しコマンドを確認")
+                self.max_hp = 9999
+                self.hp = 9999
+            else:
+                print("無効な入力です")
+                return
+
+
+class Enemy:
+    def __init__(self, hp, x, y, dd = False):
+        self.hp = hp
+        self.x = x
+        self.y = y
+        self.devilsdog = dd
+    
+    def Battle(self, index, player):
+        print("敵と遭遇した!")
+        if(player.hp <= self.hp):
+            player.hp = 0
+            print("負けてしまった...")
+        else:
+            if(index == 3):
+                print("ボスを倒した!")
+                print("チャカ(銃)を手に入れた!")
+                player.chaka = True
+                drop = random.randrange(4)
+                if(drop != 3):
+                    print("アイテムを落とした!")
+                    GetItem(player)
+            else:
+                print("敵を倒した!")
+                if(index == 2):
+                    drop = random.randrange(2)
+                else:
+                    drop = random.randrange(4)
+                if(drop == 0):
+                    print("アイテムを落とした!")
+                    GetItem(player)
+            upper = int(self.hp / 2.0)
+            damage = int(self.hp / 4.0)
+            player.max_hp += upper
+            player.hp -= damage
+            print(f"最大HPが「{upper}」上昇した!")
+            print(f"この戦闘で「{damage}」ダメージ受けた")
+                
+    def SearchBattle(self, index, player):
+        if(self.x == player.x and self.y == player.y):
+            player.movement = 0
+            self.Battle(index, player)
+            return 1
+        else:
+            return 0
+
+    def Move(self, board):
+        print("敵の行動")
+        # ルールベースAIの作成をさぼってます
+        while(True):
+            direction = random.randrange(9)
+            if(direction != 4):
+                y = self.y + (direction // 3) - 1
+                x = self.x + (direction % 3) - 1
+                if(y >= 0 and y <= len(board)-1 and x >= 0 and x <= len(board[y])-1):
+                    if(board[y][x] != WALL):
+                        self.y = y
+                        self.x = x
+                        break
+
+
+def MakeBoard(size, trap, wall, heal):
+    board = [[0 for x in range(size)] for y in range(size)]
+    for a in range(trap):
+        while(True):
+            t_index = random.randrange(size*size)
+            if(board[t_index // size][t_index % size] != TRAP):
+                board[t_index // size][t_index % size] = TRAP
+                break
+
+    for b in range(wall):
+        while(True):
+            w_index = random.randrange(size*size)
+            if(board[w_index // size][w_index % size] == 0):
+                board[w_index // size][w_index % size] = WALL
+                break
+    
+    for c in range(heal):
+        while(True):
+            h_index = random.randrange(size*size)
+            if(board[h_index // size][h_index % size] == 0):
+                board[h_index // size][h_index % size] = HEAL
+                break
+    
+    return board
+
+def MakeReverseBoard(size, trap, wall):
+    reverse_board = [[0 for x in range(size)] for y in range(size)]
+    reverse_board[3][3] = WALL
+
+    reverse_board[3][1] = DTRAP
+    danger = random.sample([[2,0],[4,0],[2,1],[4,1]], 2)
+    for pos in danger:
+        reverse_board[pos[0]][pos[1]] = DTRAP
+
+    for a in range(wall):
+        while(True):
+            w_index = random.randrange(size*size)
+            if(reverse_board[w_index // size][w_index % size] == 0 and w_index != 21):
+                trap_num = 0
+                for i in range(9):
+                    near_x = (w_index % size) + ((i % 3) - 1)
+                    near_y = (w_index // size) + ((i // 3) - 1)
+                    if(near_x < 0 or near_y < 0 or near_x >= size or near_y >= size):
+                        continue
+                    elif(reverse_board[near_y][near_x] == WALL):
+                        trap_num += 1
+                        if(trap_num >= 2):
+                            break
+                else:
+                    reverse_board[w_index // size][w_index % size] = WALL
+                    break
+    
+
+    candidates = []
+    for j in range(9):
+        x = 3 + (j % 3) - 1
+        y = 3 + (j // 3) - 1
+        if(reverse_board[y][x] == 0):
+            candidates.append([y,x])
+    if(len(candidates) > 5):
+        candidates = random.sample(candidates, 5)
+    for pos in candidates:
+        reverse_board[pos[0]][pos[1]] = RTRAP
+
+    for b in range(trap):
+        while(True):
+            t_index = random.randrange(size*size)
+            if(reverse_board[t_index // size][t_index % size] == 0 and t_index != 21 and t_index != 27):
+                reverse_board[t_index // size][t_index % size] = RTRAP
+                break
+
+    return reverse_board
+
+def MaskBoard(size, item, board):
+    mask = [[0 for x in range(size)] for y in range(size)]
+    for a in range(item):
+        while(True):
+            index = random.randrange(size*size)
+            if(mask[index // size][index % size] == 0 and board[index // size][index % size] != WALL):
+                mask[index // size][index % size] = ITEM
+                break
+    
+    return mask
+
+def ReverseMaskBoard(size):
+    mask = [[0 for x in range(size)] for y in range(size)]
+    return mask
+
+def ShowBoard(board, mask, player, enemys):
+
+    print("-----------------------------")
+    for y in range(len(board)):
+        print("|",end="")
+        for x in range(len(board[y])):
+            if(x == 0 and y == 3 and player.chaka == True):
+                print(" G |",end="")
+                continue
+            if(player.x == x and player.y == y):
+                print(" P |",end="")
+            else:
+                for enemy in enemys:
+                    if(enemy.x == x and enemy.y == y):
+                        print(f"{enemy.hp:03d}|",end="")
+                        break
+                else:
+                    if(mask[y][x] == ITEM):
+                        print(" ? |",end="")
+                    elif(board[y][x] == HEAL):
+                        print(" H |",end="")
+                    elif(board[y][x] == TRAP and mask[y][x] == 2):
+                        print(" T |",end="")
+                    elif(board[y][x] == RTRAP):
+                        print(" T |",end="")
+                    elif(board[y][x] == DTRAP):
+                        print(" D |",end="")
+                    elif(board[y][x] == WALL):
+                        print(" X |",end="")
+                    else:
+                        print("   |",end="")
+        print("")
+        print("-----------------------------")
+
+def GetItem(player):
+    if(len(player.items) == 5):
+        print("持ち物がいっぱいだったので、アイテムを焼いた")
+    else:
+        percent = random.randrange(100)
+        if(percent < 10):
+            print("「親子の絆」を手に入れた")
+            player.items.append(3)
+        elif(percent < 40):
+            print("「止血剤」を手に入れた")
+            player.items.append(1)
+        elif(percent < 60):
+            print("「ドス」を手に入れた")
+            player.items.append(4)
+        elif(percent < 80):
+            print("「安全靴」を手に入れた")
+            player.items.append(2)
+        else:
+            print("「セグウェイ」を手に入れた")
+            player.items.append(5)
+
+def SummonEnemy(player, index, board, enemys):
+    if(index == 2):
+        h = (int)(player.max_hp * 1.2)
+        while(True):
+            x = random.randrange(len(board))
+            y = random.randrange(len(board))
+            if(board[y][x] != WALL and y != player.y and x != player.x):
+                for e in enemys:
+                    if(e.x == x and e.y == y):
+                        break
+                else:
+                    return Enemy(h, x, y)
+    elif(index == 3):
+        return Enemy(50, 6, 3)
+    elif(index == 4):
+        return Enemy(999, 6, 3, True)
+    else:
+        percent = random.randrange(5, 10)
+        h = (int)(player.max_hp * percent * 0.1)
+        while(True):
+            x = random.randrange(len(board))
+            y = random.randrange(len(board))
+            if(board[y][x] != WALL and y != player.y and x != player.x):
+                for e in enemys:
+                    if(e.x == x and e.y == y):
+                        break
+                else:
+                    return Enemy(h, x, y)
+                
+def ShowStatus(player):
+    print(f"現在のHP {player.hp}/{player.max_hp}")
+    print("現在の所持アイテム")
+    if(len(player.items) == 0):
+        print("何も持っていません")
+    else:
+        for i in range(len(player.items)):
+            print(f"{i+1}: ", end="")
+            if(player.items[i] == 1):
+                print("止血剤: HPを全回復")
+            elif(player.items[i] == 2):
+                print("安全靴: このアイテムを使ったターン、罠を無効化")
+            elif(player.items[i] == 3):
+                print("親子の絆: 死んだとき、HP1で耐え、ランダムな場所にテレポート")
+            elif(player.items[i] == 4):
+                print("ドス: 最大HP上昇")
+            elif(player.items[i] == 5):
+                print("セグウェイ: ターンを消費せず1マス移動")
+
+def Trap(player, enemys, board):
+    if(board[player.y][player.x] == TRAP):
+        print("トラップを踏んでしまった!")
+        percent = random.randrange(1, 6)
+        damage = int(player.hp * percent * 0.1)
+        player.hp -= damage
+        print(f"{damage}ダメージ受けた!")
+
+    elif(board[player.y][player.x] == RTRAP):
+        print("トラップを踏んでしまった!")
+        effect = random.randrange(1,5)
+        if(effect == 1):
+            player.only_one = True
+            print("次のサイコロの出目が1に固定された!")
+        elif(effect == 2):
+            player.hp -= int(player.max_hp * 0.5)
+            print(f"{int(player.max_hp * 0.5)}ダメージ受けた!")
+        elif(effect == 3):
+            if(len(enemys) == 0):
+                print("しかし何も起こらなかった!")
+            else:
+                enemys[0].Move(board)
+                print("自衛隊が1マス近づいてきた!")
+        elif(effect == 4):
+            if(player.y > 3):
+                candidates = [[1, 0],[0, 1],[1, 1]]
+                for pos in candidates:
+                    if(player.y + pos[0] < 7 or player.x + pos[1] < 7):
+                        if(board[player.y + pos[0]][player.x + pos[1]] != WALL):
+                            print("ゴールから少し遠ざかってしまった!")
+                            player.y += pos[0]
+                            player.x += pos[1]
+                            break
+                else:
+                    print("しかし何も起こらなかった!")
+            elif(player.y < 3):
+                candidates = [[-1, 0],[0, 1],[-1, 1]]
+                for pos in candidates:
+                    if(player.y + pos[0] >= 0 or player.x + pos[1] < 7):
+                        if(board[player.y + pos[0]][player.x + pos[1]] != WALL):
+                            print("ゴールから少し遠ざかってしまった!")
+                            player.y += pos[0]
+                            player.x += pos[1]
+                            break
+                else:
+                    print("しかし何も起こらなかった!")
+            elif(player.y == 3):
+                candidates = [[0, 1],[1, 1],[-1, 1]]
+                for pos in candidates:
+                    if(player.x + pos[1] < 7):
+                        if(board[player.y + pos[0]][player.x + pos[1]] != WALL):
+                            print("ゴールから少し遠ざかってしまった!")
+                            player.y += pos[0]
+                            player.x += pos[1]
+                            break
+                else:
+                    print("しかし何も起こらなかった!")
+            
+    elif(board[player.y][player.x] == DTRAP):
+        print("強力なトラップを踏んでしまった!")
+        effect = random.randrange(5,8)
+        if(effect == 5):
+            while(True):
+                index = random.randrange(49)
+                y = index // 7
+                if(y >= 2 and y <= 4):
+                    continue
+                x = index % 7
+                if(board[y][x] != WALL):
+                    if(len(enemys) != 0):
+                        if(y == enemys[0].y and x == enemys[0].x):
+                            continue
+                    player.y = y
+                    player.x = x
+                    print("どこかにテレポートしてしまった!")
+                    break
+        elif(effect == 6):
+            player.minus_three = 2
+            print("2ターン後までサイコロの出目が-1されるようになった!")
+        elif(effect == 7):
+            damage = int(player.max_hp * 0.9)
+            player.hp -= damage
+            print(f"{damage}ダメージ受けた!")
+
+def WinChecker(player):
+    if(player.chaka == True and player.x == 0 and player.y == 3):
+        return 1
+    elif(player.hp <= 0):
+        return -1
+    else:
+        return 0
+
+def Teleport(player, board, enemys):
+    while(True):
+        index = random.randrange(49)
+        y = index // 7
+        if(y >= 2 and y <= 4):
+            continue
+        x = index % 7
+        if(board[y][x] != WALL):
+            if(len(enemys) != 0):
+                if(y == enemys[0].y and x == enemys[0].x):
+                    continue
+            player.y = y
+            player.x = x
+            print("どこかにテレポートしてしまった!")
+            break
+
+def Story(board, mask, player, enemys):
+    story = ["大阪を拠点とするヤクザグループ、紅禍組。そこの新入りヤクザは組長からある命令を言い渡された。",
+             "組長「おう新入り、今度の抗争はかなり激しくなりそうや。」",
+             "組長「そこでお前には梅田駅にいるサツからチャカ盗ってきて欲しいんや。」",
+             "組長「これができりゃお前を一人前と認めたる。どうや、出来るやろ？」",
+             "こうして、新入りヤクザのあなたは梅田駅の警察から拳銃を奪うため、夜の大阪に踏み出した!"]
+    
+    how = ["梅田駅へようこそ",
+           "まず、マップの見方を説明します",
+           "マップ上のＰがあなたの位置です",
+           "あなたは1ターンに1回、サイコロ(1~3が出る)を振り、その目の数だけ上下左右に移動できます",
+           "上下左右への移動はそれぞれwasdキーを入力することで実行できます",
+           "止まったマスにトラップがあった場合、何かしらのデメリット効果を受けてしまいます",
+           "一度踏んだトラップは効果を発揮せず、マップにも表示されるようになります",
+           "マップ上に点在している数字のあるマスには、あなたの敵がいます",
+           "移動中に敵のいるマスに行ってしまうとどれだけ行動できるマスが残っていてもそこでストップとなり、戦闘が始まります",
+           "戦闘では敵のHP(マスに表示されている数字)と自分のHPを比較し、大きい方が勝利となります",
+           "戦闘で敗北してしまうとゲームオーバーなので気を付けましょう",
+           "勝利した場合、倒した敵のHPの半分、自分の最大HPが上昇します(上昇した分回復することはありません)",
+           "また、倒した敵のHPの1/4分、ダメージを受けてしまいます",
+           "減ったHPはアイテムの止血剤を使ったり、マップ上のHマスを通ると回復できます",
+           "敵を倒すと、新しい敵がマップのランダムな場所に再出現します",
+           "プレイヤーの行動が終わると敵の行動が始まります",
+           "一部の敵はプレイヤーよりHPが高い状態だと接近してきます",
+           "敵の方から接触しても戦闘が始まるので注意しましょう",
+           "マップ右側にいるHP50の敵が銃を持っている警官です",
+           "周囲の敵を倒して成長し、警官を倒しましょう",
+           "警官を倒したら今度は入り口まで逃げるパートに移ります",
+           "逃げるパートではマップ上にトラップが表示されていますが、踏むと効果を発動します。気を付けましょう"]
+    
+    print("---------------------ストーリー---------------------(Enterでページ送り,sでスキップ)")
+    for p in range(0, len(story), 3):
+        for index in range(3):
+            if(p+index >= len(story)):
+                break
+            print(story[p+index])
+        st = input().strip()
+        if(st == "s"):
+            break
+    print("---------------------操作説明---------------------(Enterでページ送り,sでスキップ)")
+    for h in range(0,len(how),3):
+        for index in range(3):
+            if(h+index >= len(how)):
+                break
+            print(how[h+index])
+        if(h == 0):
+            ShowBoard(board, mask, player, enemys)
+        s = input().strip()
+        if(s == "s"):
+            break
+
+board1 = MakeBoard(7, 4, 4, 2)
+board2 = MakeReverseBoard(7, 7, 10)
+mask1 = MaskBoard(7, 2, board1)
+mask2 = ReverseMaskBoard(7)
+player = Player(15, 0, 3)
+enemys = []
+nulls = []
+reverse = False
+
+for i in range(3,-1, -1):
+    enemys.insert(0, SummonEnemy(player, i, board1, enemys))
+
+board = board1
+mask = mask1
+Story(board, mask, player, enemys)
+
+while(True):
+    while(player.movement == 0):
+        ShowBoard(board, mask, player, enemys)
+        ShowStatus(player)
+        GAME_ENDER = WinChecker(player)
+        if(GAME_ENDER == 1):
+            break
+        elif(GAME_ENDER == -1):
+            if(3 in player.items):
+                del player.items[player.items.index(3)]
+                player.hp = 1
+                GAME_ENDER = 0
+                Teleport(player, board, enemys)
+            else:
+                break
+        player.Action(board)
+    while(player.movement != 0):
+        if(player.movement == -1):
+            player.movement = 0
+        else:
+            player.Move(board)
+            player.movement -= 1
+            for i in range(len(enemys)):
+                battle = enemys[i].SearchBattle(i, player)
+                if(battle == 1):
+                    del enemys[i]
+                    enemys.insert(i, SummonEnemy(player, i, board, enemys))
+            if(board[player.y][player.x] == HEAL):
+                player.hp = player.max_hp
+                print("休憩所マスの効果でHPが全回復した!")
+            if(mask[player.y][player.x] == ITEM):
+                GetItem(player)
+                mask[player.y][player.x] = 0
+            ShowBoard(board, mask, player, enemys)
+            ShowStatus(player)
+    GAME_ENDER = WinChecker(player)
+    if(GAME_ENDER == 1):
+        break
+    elif(GAME_ENDER == -1):
+        if(3 in player.items):
+            del player.items[player.items.index(3)]
+            player.hp = 1
+            GAME_ENDER = 0
+            Teleport(player, board, enemys)
+        else:
+            break
+    if(player.avoid_trap == True):
+        player.avoid_trap = False
+    else:
+        if(mask[player.y][player.x] != 2):
+            Trap(player, enemys, board)
+    mask[player.y][player.x] = 2
+    GAME_ENDER = WinChecker(player)
+    if(GAME_ENDER == 1):
+        break
+    elif(GAME_ENDER == -1):
+        if(3 in player.items):
+            del player.items[player.items.index(3)]
+            player.hp = 1
+            GAME_ENDER = 0
+            Teleport(player, board, enemys)
+        else:
+            break
+    if(player.chaka == True and reverse == False):
+            reverse = True
+            enemys.clear()
+            board = board2
+            mask = mask2
+            print("チャカを手に入れた!")
+            print("あとは出入り口に戻るだけだ!")
+            print("なぜか嫌な予感がする...早く脱出しよう!")
+    else:
+        if(len(enemys) == 0):
+            distance = abs(player.x - 6) + abs(player.y - 3)
+            if(distance >= 3):
+                enemys.append(SummonEnemy(999, 4, board, enemys))
+        for i in range(len(enemys)):
+            if(enemys[i].devilsdog == True):
+                move = random.randrange(1,4)
+                for j in range(move):
+                    enemys[i].Move(board)
+                    for i in range(len(enemys)):
+                        battle = enemys[i].SearchBattle(i, player)
+                        if(battle == 1):
+                            del enemys[i]
+                            enemys.insert(i, SummonEnemy(player, i, board, enemys))
+
+            elif(i == 2 and enemys[i].hp >= player.hp):
+                enemys[i].Move(board)
+                for i in range(len(enemys)):
+                    battle = enemys[i].SearchBattle(i, player)
+                    if(battle == 1):
+                        del enemys[i]
+                        enemys.insert(i, SummonEnemy(player, i, board, enemys))
+        
+        GAME_ENDER = WinChecker(player)
+        if(GAME_ENDER == 1):
+            break
+        elif(GAME_ENDER == -1):
+            if(3 in player.items):
+                del player.items[player.items.index(3)]
+                player.hp = 1
+                GAME_ENDER = 0
+                Teleport(player, board, enemys)
+            else:
+                break
+            
+if(GAME_ENDER == 1):
+    print("GAME CLEAR!!")
+elif(GAME_ENDER == -1):
+    print("GAME OVER")
+else:
+    print("ERROR!!!")
