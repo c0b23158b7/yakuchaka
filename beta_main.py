@@ -614,7 +614,7 @@ def Trap(player, enemys, board):
             if(len(enemys) == 0):
                 print("しかし何も起こらなかった!")
             else:
-                enemys[0].Move(board)
+                enemys[0].Move(board, player)
                 print("自衛隊が1マス近づいてきた!")
         elif(effect == 4):
             if(player.y > 3):
