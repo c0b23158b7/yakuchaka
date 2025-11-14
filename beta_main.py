@@ -11,7 +11,9 @@ WALL = -1
 GAME_ENDER = 0
 
 
+
 class Player:
+    # Playerの状態を管理する
     def __init__(self, hp, x, y):
         self.max_hp =hp
         self.hp = hp
@@ -24,6 +26,7 @@ class Player:
         self.minus_three = 0
         self.chaka = False
     
+    # サイコロを振るメソッド(効果で出目に手が加わる時の処理あり)
     def RollDice(self):
         puls = random.randrange(1,4)
         self.movement += puls
@@ -39,6 +42,7 @@ class Player:
             self.minus_three -= 1
             print("トラップの効果で出目が-3された!")
     
+    # アイテムを使うメソッド。アイテムごとに処理を分けて実装している
     def UseItem(self, index, board):
         if(self.items[index] == 1):
             print("HPを全回復した!")
@@ -131,7 +135,6 @@ class Player:
                 print("無効な入力です")
                 return
 
-
 class Enemy:
     def __init__(self, hp, x, y, dd = False):
         self.hp = hp
@@ -177,19 +180,215 @@ class Enemy:
         else:
             return 0
 
-    def Move(self, board):
-        print("敵の行動")
-        # ルールベースAIの作成をさぼってます
-        while(True):
-            direction = random.randrange(9)
-            if(direction != 4):
-                y = self.y + (direction // 3) - 1
-                x = self.x + (direction % 3) - 1
-                if(y >= 0 and y <= len(board)-1 and x >= 0 and x <= len(board[y])-1):
-                    if(board[y][x] != WALL):
-                        self.y = y
-                        self.x = x
+# 行動の変更点(Aiの活用+行動ごとにエンターキーを入力することで進行)
+    def Move(self, board, player):
+        print("敵の行動: Enterでページ送り")
+        st = input()
+        pf = PathFinding()
+        moving = pf.get_next_move(board, [self.y, self.x], [player.y, player.x])
+        self.y = moving[0]
+        self.x = moving[1]
+
+class Node:    
+    #クラスの初期化。最初のノードは親もない、場所もない。
+    def __init__(self, parent=None, position=None):
+        self.parent = parent
+        self.position = position
+        
+        self.g = 0
+        self.h = 0
+        self.f = 0
+
+class PathFinding:
+    """
+    A*探索を使うAIのクラス
+    ゲームボード上での最短経路を探索し、次の行動を決定する
+    """
+    def __init__(self):
+        self.queue = None           # 待ち行列
+        self.visited = []           # 訪問済みの場所
+        self.path = []              # ゴールまでの経路
+        self.cost = 0               # 見つけった経路のコスト
+        self.search_name = "A* Search"
+
+    def find_path(self, board, start, goal):
+        """
+        迷路のスタートノードからゴールノードまでの経路を作成
+        
+        Args:
+            board: ゲームボード(2次元リスト)
+            start: スタート位置 [y, x]
+            goal: ゴール位置 [y, x]
+        
+        Returns:
+            bool: 経路が見つかった場合True、見つからなかった場合False
+        """
+        # スタートノードとゴールノードを作成(クラスを使用)と深さを初期化
+        start_node = Node(None, start)
+        start_node.depth = 0
+        goal_node = Node(None, goal)
+        goal_node.depth = 0
+        
+        # まだ訪問されていないノードと既に訪問されたノードを初期化。
+        self.queue = []
+        self.visited = []
+        # スタートノードはまだ訪問されていないので未訪問リストに保存
+        self.queue.append(start_node)
+        
+        # 2次元の迷路の可能な移動
+        move = [[-1, 0],    # 上
+                [0, -1],    # 左
+                [1, 0],     # 下
+                [0, 1]]     # 右
+        
+        # 迷路の行と列の数を把握
+        row_no = len(board)
+        column_no = len(board[0])
+        
+        # ゴールノードを発見するまでのループ(まだ訪問されていないノードがある限る続く)
+        while len(self.queue) > 0:
+            # fコストが一番低いノードは次に展開する
+            current_node = self.queue[0]
+            current_index = 0
+            for index, item in enumerate(self.queue):
+                if item.f < current_node.f:
+                    current_node = item
+                    current_index = index
+            # 選んだノードをまだ訪問されていないリストから削除、既に訪問されたノードに追加
+            self.queue.pop(current_index)
+            # 次に展開するノードを既に訪問されたノードに追加
+            self.visited.append(current_node)
+            
+            # 展開のために選んだノードはゴールノードならば探索終了
+            if current_node.position == goal_node.position:
+                self.path = self._return_path(current_node)
+                self.cost = current_node.g
+                return True
+            
+            # ノードを展開する。全ての可能な行動を把握。この迷路ゲームの場合、4つ方向は可能(上、左、下、右)
+            # 可能な移動先のノードを保存するためのリストを初期化
+            children = []
+            for new_position in move:
+                # 次の場所を把握
+                node_position = [current_node.position[0] + new_position[0],
+                                current_node.position[1] + new_position[1]]
+                # 迷路から出ていないことを確認
+                if (node_position[0] > (row_no - 1) or
+                    node_position[0] < 0 or
+                    node_position[1] > (column_no - 1) or
+                    node_position[1] < 0):
+                    continue
+                
+                # 壁の確認
+                if board[node_position[0]][node_position[1]] == WALL:
+                    continue
+                
+                # 可能な移動先。その移動先のノードを作成
+                new_node = Node(current_node, node_position)
+                
+                # 可能な移動先のノードを保存(リストに追加)
+                children.append(new_node)
+    
+            # 全ての作成された移動先のノードに対して、既に訪問されたかどうか、未訪問ノードの中に既にあるかどうかを確認
+            for child_node in children:
+                # 子ノードの場所は既に訪問されたら追加しない
+                for visited_node in self.visited:
+                    if child_node.position == visited_node.position:
                         break
+                else:               
+                    # f、g、とhの値を計算
+                    child_node.g = self._get_path_cost(current_node, child_node)
+                    child_node.h = self._get_heuristic_cost(child_node, goal_node)
+                    child_node.f = child_node.g + child_node.h
+                        
+                    # まだ訪問されていないノードの中に同じノードがあるかどうか
+                    add_to_queue = True
+                    for node in self.queue:
+                        if child_node.position == node.position:
+                            # 現在のノードが以前のノードより良い経路であらばノード情報を更新
+                            if node.g > child_node.g:
+                                node.g = child_node.g
+                                node.f = child_node.f
+                                node.parent = current_node
+                            # 同じ場所を表しているノードが待ち行列に既にあるならば追加しない
+                            add_to_queue = False
+                    if add_to_queue:
+                        self.queue.append(child_node)
+        
+        # 経路が見つからなかった場合
+        return False
+
+    def _get_path_cost(self, parent, child):
+        """
+        経路コストを計算
+        このゲームでは全ての移動コストを1とする
+        """
+        return parent.g + 1
+
+    def _get_heuristic_cost(self, child, goal):
+        """
+        ヒューリスティック距離を計算。この例、Manhattan距離を計算する
+        """
+        return abs(child.position[0] - goal.position[0]) + abs(child.position[1] - goal.position[1])
+
+    def _return_path(self, node):
+        """
+        探索が成功した場合、スタートノードからゴールノードまでの経路を作成
+        """
+        # 出力経路リストの初期化
+        path = []
+        current = node
+        # 現在のノードはスタートまで(親はNone)に迷路の場所(position)を保存
+        while current is not None:
+            path.append(current.position)
+            current = current.parent
+        # 作成した経路はゴールノードからスタートノードまでなので逆方向にする
+        path = path[::-1]
+        # 戻り値は作成した経路
+        return path
+
+    def get_next_move(self, board, start, goal):
+        """
+        次の移動先を取得する
+        
+        Args:
+            board: ゲームボード(2次元リスト)
+            start: スタート位置 [y, x]
+            goal: ゴール位置 [y, x]
+        
+        Returns:
+            list or None: 次の移動先 [y, x]、経路が見つからない場合はNone
+        """
+        # 経路を探索
+        if self.find_path(board, start, goal):
+            # 経路が見つかった場合、次の移動先を返す
+            # path[0]はスタート地点なので、path[1]が次の移動先
+            if len(self.path) > 1:
+                return self.path[1]
+            else:
+                # すでにゴールにいる場合
+                return start
+        else:
+            # 経路が見つからなかった場合
+            return None
+
+    def get_full_path(self):
+        """
+        最後に見つけた経路全体を取得
+        
+        Returns:
+            list: 経路のリスト
+        """
+        return self.path
+
+    def get_path_cost(self):
+        """
+        最後に見つけた経路のコストを取得
+        
+        Returns:
+            int: 経路のコスト
+        """
+        return self.cost
 
 
 def MakeBoard(size, trap, wall, heal):
@@ -226,24 +425,31 @@ def MakeReverseBoard(size, trap, wall):
     for pos in danger:
         reverse_board[pos[0]][pos[1]] = DTRAP
 
-    for a in range(wall):
-        while(True):
-            w_index = random.randrange(size*size)
-            if(reverse_board[w_index // size][w_index % size] == 0 and w_index != 21):
-                trap_num = 0
-                for i in range(9):
-                    near_x = (w_index % size) + ((i % 3) - 1)
-                    near_y = (w_index // size) + ((i // 3) - 1)
-                    if(near_x < 0 or near_y < 0 or near_x >= size or near_y >= size):
-                        continue
-                    elif(reverse_board[near_y][near_x] == WALL):
-                        trap_num += 1
-                        if(trap_num >= 2):
-                            break
-                else:
-                    reverse_board[w_index // size][w_index % size] = WALL
+    while(True):
+        regen = False
+        w_candidates = []
+        for a in range(wall):
+            while(True):
+                w_index = random.randrange(size*size)
+                if(w_index not in w_candidates and w_index != 21 and w_index != 27):
+                    w_candidates.append(w_index)
                     break
-    
+        for pos in w_candidates:
+            c_num = 0
+            for i in range(9):
+                y_dif = (i // 3 - 1) * 7
+                x_dif = (i % 3 - 1)
+                if(pos + y_dif + x_dif in w_candidates):
+                    c_num += 1
+                    if(c_num >= 3):
+                        regen = True
+                        break
+            if(regen == True):
+                break
+        if(regen != True):
+            break
+    for spot in w_candidates:
+        reverse_board[spot // size][spot % size] = WALL
 
     candidates = []
     for j in range(9):
@@ -338,6 +544,8 @@ def GetItem(player):
 def SummonEnemy(player, index, board, enemys):
     if(index == 2):
         h = (int)(player.max_hp * 1.2)
+        if(h >= 500):
+            h = 500
         while(True):
             x = random.randrange(len(board))
             y = random.randrange(len(board))
@@ -354,6 +562,8 @@ def SummonEnemy(player, index, board, enemys):
     else:
         percent = random.randrange(5, 10)
         h = (int)(player.max_hp * percent * 0.1)
+        if(h >= 500):
+            h = 500
         while(True):
             x = random.randrange(len(board))
             y = random.randrange(len(board))
@@ -519,7 +729,8 @@ def Story(board, mask, player, enemys):
            "マップ右側にいるHP50の敵が銃を持っている警官です",
            "周囲の敵を倒して成長し、警官を倒しましょう",
            "警官を倒したら今度は入り口まで逃げるパートに移ります",
-           "逃げるパートではマップ上にトラップが表示されていますが、踏むと効果を発動します。気を付けましょう"]
+           "逃げるパートではマップ上にトラップが表示されていますが、踏むと効果を発動します。気を付けましょう",
+           "表示されているTはトラップ、Dは強力なトラップを意味します"]
     
     print("---------------------ストーリー---------------------(Enterでページ送り,sでスキップ)")
     for p in range(0, len(story), 3):
@@ -542,6 +753,18 @@ def Story(board, mask, player, enemys):
         if(s == "s"):
             break
 
+def NoWayBoard(board, enemys):
+    noway = [[0 for a in range(len(board))] for b in range(len(board))]
+    for y in range(len(board)):
+        for x in range(len(board)):
+            if board[y][x] == WALL:
+                noway[y][x] = WALL
+    for en in enemys:
+        noway[en.y][en.x] = WALL
+    
+    return noway
+
+
 board1 = MakeBoard(7, 4, 4, 2)
 board2 = MakeReverseBoard(7, 7, 10)
 mask1 = MaskBoard(7, 2, board1)
@@ -556,9 +779,11 @@ for i in range(3,-1, -1):
 
 board = board1
 mask = mask1
+
 Story(board, mask, player, enemys)
 
 while(True):
+    noway = NoWayBoard(board, enemys)
     while(player.movement == 0):
         ShowBoard(board, mask, player, enemys)
         ShowStatus(player)
@@ -637,16 +862,25 @@ while(True):
         for i in range(len(enemys)):
             if(enemys[i].devilsdog == True):
                 move = random.randrange(1,4)
+                #行動回数の表示
+                print(f"敵の行動回数:{move}")
                 for j in range(move):
-                    enemys[i].Move(board)
+                    # Moveメソッドの引数変更
+                    noway = NoWayBoard(board, enemys)
+                    enemys[i].Move(noway, player)
                     for i in range(len(enemys)):
                         battle = enemys[i].SearchBattle(i, player)
                         if(battle == 1):
                             del enemys[i]
                             enemys.insert(i, SummonEnemy(player, i, board, enemys))
+                    # 変更点(敵の行動ごとに盤面を表示する)
+                    if(j+1 != move):
+                        ShowBoard(board, mask, player, enemys)
 
             elif(i == 2 and enemys[i].hp >= player.hp):
-                enemys[i].Move(board)
+                noway = NoWayBoard(board, enemys)
+                # Moveメソッドの引数変更
+                enemys[i].Move(noway, player)
                 for i in range(len(enemys)):
                     battle = enemys[i].SearchBattle(i, player)
                     if(battle == 1):
@@ -664,6 +898,7 @@ while(True):
                 Teleport(player, board, enemys)
             else:
                 break
+
             
 if(GAME_ENDER == 1):
     print("GAME CLEAR!!")

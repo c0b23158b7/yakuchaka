@@ -35,24 +35,32 @@ def MakeReverseBoard(size, trap, wall):
     for pos in danger:
         reverse_board[pos[0]][pos[1]] = DTRAP
 
-    for a in range(wall):
-        while(True):
-            w_index = random.randrange(size*size)
-            if(reverse_board[w_index // size][w_index % size] == 0 and w_index != 21):
-                trap_num = 0
-                for i in range(9):
-                    near_x = (w_index % size) + ((i % 3) - 1)
-                    near_y = (w_index // size) + ((i // 3) - 1)
-                    if(near_x < 0 or near_y < 0 or near_x >= size or near_y >= size):
-                        continue
-                    elif(reverse_board[near_y][near_x] == WALL):
-                        trap_num += 1
-                        if(trap_num >= 2):
-                            break
-                else:
-                    reverse_board[w_index // size][w_index % size] = WALL
+    # 壁生成ロジックの改善: 壁が3つ以上連続しないように制御
+    while(True):
+        regen = False
+        w_candidates = []
+        for a in range(wall):
+            while(True):
+                w_index = random.randrange(size*size)
+                if(w_index not in w_candidates and w_index != 21 and w_index != 27):
+                    w_candidates.append(w_index)
                     break
-    
+        for pos in w_candidates:
+            c_num = 0
+            for i in range(9):
+                y_dif = (i // 3 - 1) * 7
+                x_dif = (i % 3 - 1)
+                if(pos + y_dif + x_dif in w_candidates):
+                    c_num += 1
+                    if(c_num >= 3):
+                        regen = True
+                        break
+            if(regen == True):
+                break
+        if(regen != True):
+            break
+    for spot in w_candidates:
+        reverse_board[spot // size][spot % size] = WALL
 
     candidates = []
     for j in range(9):

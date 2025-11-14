@@ -1,4 +1,4 @@
-# Yakushaka beta ver1.0
+# Yakushaka beta ver1.1
 
 ## 目次
 - [1. プロジェクト概要](#1-プロジェクト概要)

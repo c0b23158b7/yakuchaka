@@ -60,6 +60,9 @@ def GetItem(player):
 def SummonEnemy(player, index, board, enemys):
     if(index == 2):
         h = (int)(player.max_hp * 1.2)
+        # HP上限の追加
+        if(h >= 500):
+            h = 500
         while(True):
             x = random.randrange(len(board))
             y = random.randrange(len(board))
@@ -76,6 +79,9 @@ def SummonEnemy(player, index, board, enemys):
     else:
         percent = random.randrange(5, 10)
         h = (int)(player.max_hp * percent * 0.1)
+        # HP上限の追加
+        if(h >= 500):
+            h = 500
         while(True):
             x = random.randrange(len(board))
             y = random.randrange(len(board))
@@ -212,3 +218,25 @@ def Teleport(player, board, enemys):
             player.x = x
             print("どこかにテレポートしてしまった!")
             break
+
+def NoWayBoard(board, enemys):
+    """
+    敵と壁を通行不可として扱うボードを生成
+    A*探索で敵同士の重複を避けるために使用
+    
+    Args:
+        board: 元のゲームボード
+        enemys: 敵のリスト
+    
+    Returns:
+        noway: 敵の位置も壁として扱ったボード
+    """
+    noway = [[0 for a in range(len(board))] for b in range(len(board))]
+    for y in range(len(board)):
+        for x in range(len(board)):
+            if board[y][x] == WALL:
+                noway[y][x] = WALL
+    for en in enemys:
+        noway[en.y][en.x] = WALL
+    
+    return noway

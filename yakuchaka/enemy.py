@@ -48,16 +48,14 @@ class Enemy:
         else:
             return 0
 
-    def Move(self, board):
-        print("敵の行動")
-        # ルールベースAIの作成をさぼってます
-        while(True):
-            direction = random.randrange(9)
-            if(direction != 4):
-                y = self.y + (direction // 3) - 1
-                x = self.x + (direction % 3) - 1
-                if(y >= 0 and y <= len(board)-1 and x >= 0 and x <= len(board[y])-1):
-                    if(board[y][x] != WALL):
-                        self.y = y
-                        self.x = x
-                        break
+    # 行動の変更点(Aiの活用+行動ごとにエンターキーを入力することで進行)
+    def Move(self, board, player):
+        from .pathfinding import PathFinding
+        
+        print("敵の行動: Enterでページ送り")
+        st = input()
+        pf = PathFinding()
+        moving = pf.get_next_move(board, [self.y, self.x], [player.y, player.x])
+        if moving is not None:
+            self.y = moving[0]
+            self.x = moving[1]

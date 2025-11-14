@@ -3,7 +3,7 @@ from yakuchaka.constants import *
 from yakuchaka.player import Player
 from yakuchaka.enemy import Enemy
 from yakuchaka.board import MakeBoard, MakeReverseBoard, MaskBoard, ReverseMaskBoard
-from yakuchaka.game_utils import ShowBoard, GetItem, SummonEnemy, ShowStatus, Trap, WinChecker, Teleport
+from yakuchaka.game_utils import ShowBoard, GetItem, SummonEnemy, ShowStatus, Trap, WinChecker, Teleport, NoWayBoard
 from yakuchaka.story import Story
 
 board1 = MakeBoard(7, 4, 4, 2)
@@ -20,9 +20,11 @@ for i in range(3,-1, -1):
 
 board = board1
 mask = mask1
+
 Story(board, mask, player, enemys)
 
 while(True):
+    noway = NoWayBoard(board, enemys)
     while(player.movement == 0):
         ShowBoard(board, mask, player, enemys)
         ShowStatus(player)
@@ -101,16 +103,25 @@ while(True):
         for i in range(len(enemys)):
             if(enemys[i].devilsdog == True):
                 move = random.randrange(1,4)
+                # 行動回数の表示
+                print(f"敵の行動回数:{move}")
                 for j in range(move):
-                    enemys[i].Move(board)
+                    # Moveメソッドの引数変更
+                    noway = NoWayBoard(board, enemys)
+                    enemys[i].Move(noway, player)
                     for i in range(len(enemys)):
                         battle = enemys[i].SearchBattle(i, player)
                         if(battle == 1):
                             del enemys[i]
                             enemys.insert(i, SummonEnemy(player, i, board, enemys))
+                    # 変更点(敵の行動ごとに盤面を表示する)
+                    if(j+1 != move):
+                        ShowBoard(board, mask, player, enemys)
 
             elif(i == 2 and enemys[i].hp >= player.hp):
-                enemys[i].Move(board)
+                noway = NoWayBoard(board, enemys)
+                # Moveメソッドの引数変更
+                enemys[i].Move(noway, player)
                 for i in range(len(enemys)):
                     battle = enemys[i].SearchBattle(i, player)
                     if(battle == 1):
@@ -128,6 +139,7 @@ while(True):
                 Teleport(player, board, enemys)
             else:
                 break
+
             
 if(GAME_ENDER == 1):
     print("GAME CLEAR!!")

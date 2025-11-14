@@ -2,6 +2,7 @@ import random
 from .constants import WALL, HEAL, ITEM
 
 class Player:
+    # Playerの状態を管理する
     def __init__(self, hp, x, y):
         self.max_hp =hp
         self.hp = hp
@@ -14,6 +15,7 @@ class Player:
         self.minus_three = 0
         self.chaka = False
     
+    # サイコロを振るメソッド(効果で出目に手が加わる時の処理あり)
     def RollDice(self):
         puls = random.randrange(1,4)
         self.movement += puls
@@ -29,6 +31,7 @@ class Player:
             self.minus_three -= 1
             print("トラップの効果で出目が-3された!")
     
+    # アイテムを使うメソッド。アイテムごとに処理を分けて実装している
     def UseItem(self, index, board):
         if(self.items[index] == 1):
             print("HPを全回復した!")
