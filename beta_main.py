@@ -1,4 +1,15 @@
 import random
+import sys
+import platform
+
+# プラットフォーム判定とモジュールのインポート
+PLATFORM = platform.system()
+
+if PLATFORM == "Windows":
+    import msvcrt
+else:
+    import tty
+    import termios
 
 ITEM = 1
 HEAL = 2
@@ -10,6 +21,61 @@ WALL = -1
 
 GAME_ENDER = 0
 
+RED = '\033[31m'
+GREEN = '\033[32m'
+YELLOW = '\033[33m'
+RESET = '\033[0m'
+
+
+def get_arrow_key():
+    """
+    クロスプラットフォーム対応の矢印キー入力取得関数
+    Windows: msvcrt使用
+    Mac/Linux: termios使用
+    
+    Returns:
+        str: 'UP', 'DOWN', 'LEFT', 'RIGHT', 'INVALID' のいずれか
+    """
+    if PLATFORM == "Windows":
+        # Windows環境
+        if msvcrt.kbhit():
+            key = ord(msvcrt.getch())
+            if key == 224:  # 矢印キーのプレフィックス
+                key = ord(msvcrt.getch())
+                if key == 72:
+                    return 'UP'
+                elif key == 80:
+                    return 'DOWN'
+                elif key == 75:
+                    return 'LEFT'
+                elif key == 77:
+                    return 'RIGHT'
+            return 'INVALID'
+        return None
+    else:
+        # Mac/Linux環境
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+            
+            # ESCシーケンス（矢印キー）の処理
+            if ch == '\x1b':  # ESC
+                ch2 = sys.stdin.read(1)
+                if ch2 == '[':
+                    ch3 = sys.stdin.read(1)
+                    if ch3 == 'A':
+                        return 'UP'
+                    elif ch3 == 'B':
+                        return 'DOWN'
+                    elif ch3 == 'C':
+                        return 'RIGHT'
+                    elif ch3 == 'D':
+                        return 'LEFT'
+            return 'INVALID'
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 class Player:
@@ -64,51 +130,52 @@ class Player:
             del self.items[index]
         
     def Move(self, board):
+        print("移動方向を入力(矢印キーで方向決定)")
         while(True):
-            print("移動方向を入力してください(↑:w ←:a ↓:s →:d)")
-            act = input().strip()
-            if(act == "w"):
+            key = get_arrow_key()
+            
+            if key is None:
+                continue
+            
+            if key == 'UP':
                 if(self.y > 0):
                     if(board[self.y - 1][self.x] != WALL):
                         self.y += -1
                         break
                 print("その方向には移動できない")
-            elif(act == "a"):
+            elif key == 'LEFT':
                 if (self.x > 0):
                     if(board[self.y][self.x - 1] != WALL):
                         self.x += -1
                         break
                 print("その方向には移動できない")
-            elif(act == "s"):
+            elif key == 'DOWN':
                 if(self.y < len(board) - 1):
                     if(board[self.y + 1][self.x] != WALL):
                         self.y += 1
                         break
                 print("その方向には移動できない")
-            elif(act == "d"):
+            elif key == 'RIGHT':
                 if(self.x < len(board[self.y]) - 1):
                     if(board[self.y][self.x + 1] != WALL):
                         self.x += 1
                         break
                 print("その方向には移動できない")
-            else:
+            elif key == 'INVALID':
                 print("無効な入力を検知")
         
     def Action(self, board):
         while(True):
-            print("行動を入力してください")
-            print("サイコロ:r")
-            print("アイテム:i")
+            print("行動を入力(i:アイテム s:ルール説明 それ以外の入力でサイコロ)")
             act = input().strip()
-            if(act == "r"):
-                self.RollDice()
-                break
-            elif(act == "i"):
+            if(act == "i"):
                 if(len(self.items) == 0):
                     print("アイテムを所持していません")
                 else:
                     print("使用するアイテムの番号を入力してください")
+                    correct_input = []  # 存在するアイテム番号の文字列を格納するためのリスト
                     for i in range(len(player.items)):
+                        correct_input.append(str(i+1))  # 番号の文字列を追加
                         print(f"{i+1}: ", end="")
                         if(player.items[i] == 1):
                             print("止血剤: HPを全回復")
@@ -120,19 +187,22 @@ class Player:
                             print("ドス: 最大HP上昇")
                         elif(player.items[i] == 5):
                             print("セグウェイ: ターンを消費せず1マス移動")
-                    use = int(input())
-                    if(use <= len(self.items)):
-                        self.UseItem(use-1, board)
+                    use = input().strip()
+                    if(use in correct_input):  # 入力された文字が正しい番号であるかの確認
+                        self.UseItem(int(use)-1, board)
                         break
                     else:
                         print("無効な入力です")
                         return
+            elif(act == "s"):
+                HowToPlay()
+                break
             elif(act == "wwssadadba"):
                 print("隠しコマンドを確認")
                 self.max_hp = 9999
                 self.hp = 9999
             else:
-                print("無効な入力です")
+                self.RollDice()
                 return
 
 class Enemy:
@@ -180,14 +250,15 @@ class Enemy:
         else:
             return 0
 
-# 行動の変更点(Aiの活用+行動ごとにエンターキーを入力することで進行)
+    # 行動の変更点(Aiの活用+行動ごとにエンターキーを入力することで進行)
     def Move(self, board, player):
         print("敵の行動: Enterでページ送り")
         st = input()
         pf = PathFinding()
         moving = pf.get_next_move(board, [self.y, self.x], [player.y, player.x])
-        self.y = moving[0]
-        self.x = moving[1]
+        if moving is not None:
+            self.y = moving[0]
+            self.x = moving[1]
 
 class Node:    
     #クラスの初期化。最初のノードは親もない、場所もない。
@@ -391,20 +462,20 @@ class PathFinding:
         return self.cost
 
 
-def MakeBoard(size, trap, wall, heal):
+def MakeBoard(size, trap, heal):
     board = [[0 for x in range(size)] for y in range(size)]
+
+    wall_pos = [16, 18, 30, 32]
+    for b in range(4):
+            w_index = wall_pos[b]
+            if(board[w_index // size][w_index % size] == 0):
+                board[w_index // size][w_index % size] = WALL
+
     for a in range(trap):
         while(True):
             t_index = random.randrange(size*size)
-            if(board[t_index // size][t_index % size] != TRAP):
+            if(board[t_index // size][t_index % size] == 0):
                 board[t_index // size][t_index % size] = TRAP
-                break
-
-    for b in range(wall):
-        while(True):
-            w_index = random.randrange(size*size)
-            if(board[w_index // size][w_index % size] == 0):
-                board[w_index // size][w_index % size] = WALL
                 break
     
     for c in range(heal):
@@ -496,17 +567,24 @@ def ShowBoard(board, mask, player, enemys):
                 print(" G |",end="")
                 continue
             if(player.x == x and player.y == y):
-                print(" P |",end="")
+                print(GREEN + " P " + RESET + "|",end="")
             else:
-                for enemy in enemys:
-                    if(enemy.x == x and enemy.y == y):
-                        print(f"{enemy.hp:03d}|",end="")
-                        break
+                for index in range(len(enemys)):
+                    if(enemys[index].x == x and enemys[index].y == y):
+                        if(enemys[index].devilsdog or index == 2):
+                            print(RED+ f"{enemys[index].hp:03d}" + RESET + "|",end="")
+                            break
+                        elif(index == 3):
+                            print(YELLOW + f"{enemys[index].hp:03d}" + RESET + "|", end="")
+                            break
+                        else:
+                            print(f"{enemys[index].hp:03d}|",end="")
+                            break
                 else:
                     if(mask[y][x] == ITEM):
                         print(" ? |",end="")
                     elif(board[y][x] == HEAL):
-                        print(" H |",end="")
+                        print(" ✙ |",end="")
                     elif(board[y][x] == TRAP and mask[y][x] == 2):
                         print(" T |",end="")
                     elif(board[y][x] == RTRAP):
@@ -514,10 +592,38 @@ def ShowBoard(board, mask, player, enemys):
                     elif(board[y][x] == DTRAP):
                         print(" D |",end="")
                     elif(board[y][x] == WALL):
-                        print(" X |",end="")
+                        print(" ▪ |",end="")
                     else:
                         print("   |",end="")
-        print("")
+        print("   ",end="")
+        if(player.chaka == True):
+            if(y == 2):
+                print("▪:壁")
+            elif(y == 3):
+                print("数字(赤):追跡する敵")
+            elif(y == 4):
+                print("T:止まるとデメリットが発生するトラップ")
+            elif(y == 5):
+                print("D:Tよりも強力な効果を持つデストラップ")
+            elif(y == 6):
+                print("G:ピッタリ止まることでクリアになるゴール")
+            else:
+                print("")
+        else:
+            if(y == 0):
+                print("▪:壁")
+            if(y == 1):
+                print("数字(白):止まっている敵")
+            if(y == 2):
+                print("数字(赤):追跡してくる敵")
+            if(y == 3):
+                print("数字(黄):チャカを持っている警官")
+            if(y == 4):
+                print("✙:通過することでHPを全回復する(何度でも使用可能)")
+            if(y == 5):
+                print("?:通過することでランダムにアイテムを獲得")
+            if(y == 6):
+                print("T:すでに発動したトラップ(もう効果を発動しない)")
         print("-----------------------------")
 
 def GetItem(player):
@@ -578,7 +684,7 @@ def ShowStatus(player):
     print(f"現在のHP {player.hp}/{player.max_hp}")
     print("現在の所持アイテム")
     if(len(player.items) == 0):
-        print("何も持っていません")
+        print("")
     else:
         for i in range(len(player.items)):
             print(f"{i+1}: ", end="")
@@ -701,36 +807,17 @@ def Teleport(player, board, enemys):
             print("どこかにテレポートしてしまった!")
             break
 
-def Story(board, mask, player, enemys):
-    story = ["大阪を拠点とするヤクザグループ、紅禍組。そこの新入りヤクザは組長からある命令を言い渡された。",
+def Story():
+    story = ["大阪を拠点とするヤクザグループ、紅白組。そこの新入りヤクザは組長からある命令を言い渡された。",
              "組長「おう新入り、今度の抗争はかなり激しくなりそうや。」",
              "組長「そこでお前には梅田駅にいるサツからチャカ盗ってきて欲しいんや。」",
-             "組長「これができりゃお前を一人前と認めたる。どうや、出来るやろ？」",
-             "こうして、新入りヤクザのあなたは梅田駅の警察から拳銃を奪うため、夜の大阪に踏み出した!"]
-    
-    how = ["梅田駅へようこそ",
-           "まず、マップの見方を説明します",
-           "マップ上のＰがあなたの位置です",
-           "あなたは1ターンに1回、サイコロ(1~3が出る)を振り、その目の数だけ上下左右に移動できます",
-           "上下左右への移動はそれぞれwasdキーを入力することで実行できます",
-           "止まったマスにトラップがあった場合、何かしらのデメリット効果を受けてしまいます",
-           "一度踏んだトラップは効果を発揮せず、マップにも表示されるようになります",
-           "マップ上に点在している数字のあるマスには、あなたの敵がいます",
-           "移動中に敵のいるマスに行ってしまうとどれだけ行動できるマスが残っていてもそこでストップとなり、戦闘が始まります",
-           "戦闘では敵のHP(マスに表示されている数字)と自分のHPを比較し、大きい方が勝利となります",
-           "戦闘で敗北してしまうとゲームオーバーなので気を付けましょう",
-           "勝利した場合、倒した敵のHPの半分、自分の最大HPが上昇します(上昇した分回復することはありません)",
-           "また、倒した敵のHPの1/4分、ダメージを受けてしまいます",
-           "減ったHPはアイテムの止血剤を使ったり、マップ上のHマスを通ると回復できます",
-           "敵を倒すと、新しい敵がマップのランダムな場所に再出現します",
-           "プレイヤーの行動が終わると敵の行動が始まります",
-           "一部の敵はプレイヤーよりHPが高い状態だと接近してきます",
-           "敵の方から接触しても戦闘が始まるので注意しましょう",
-           "マップ右側にいるHP50の敵が銃を持っている警官です",
-           "周囲の敵を倒して成長し、警官を倒しましょう",
-           "警官を倒したら今度は入り口まで逃げるパートに移ります",
-           "逃げるパートではマップ上にトラップが表示されていますが、踏むと効果を発動します。気を付けましょう",
-           "表示されているTはトラップ、Dは強力なトラップを意味します"]
+             "組長「これができりゃお前を一人前と認めたる。どうや、出来るやろ?」",
+             "こうして、新入りヤクザのあなたは梅田駅の警察から拳銃を奪うため、夜の大阪に踏み出した!",
+             "",
+             "警視庁「今夜、紅白組の下っ端が梅田駅で一般人を襲撃するという情報を得た",
+             "警視庁「現場の警官は銃を携帯の上、厳重に警戒したまえ",
+             "警視庁「また、有事の際には自衛隊の第一空挺団員と迅速に連携を取れるように手筈を整えておく",
+             "チャカを賭けた漢の仁義なき闘争が今、始まる!!"]
     
     print("---------------------ストーリー---------------------(Enterでページ送り,sでスキップ)")
     for p in range(0, len(story), 3):
@@ -741,14 +828,51 @@ def Story(board, mask, player, enemys):
         st = input().strip()
         if(st == "s"):
             break
-    print("---------------------操作説明---------------------(Enterでページ送り,sでスキップ)")
+
+def HowToPlay():
+    how = [YELLOW + "行動" + RESET + ":ターン開始時、iキーを入力することでアイテム使用モードに移行する",
+           "sキーを入力することで再びこのチュートリアルを見ることができる",
+           "アイテム使用モードでは所持アイテムの番号を入力することでそのアイテムを使用できる",
+           "i、s以外の入力(無を含む)を行うことでサイコロをふることができる",
+           "サイコロは1~3の出目があり、出目の数だけ移動する",
+           "移動には矢印キーを使う(移動の入力はEnter不要)",
+           YELLOW + "戦闘" + RESET +"：マップ上の数字は敵のHPを意味し、このマスに接触すると戦闘が始まる",
+           "このとき、まだこのターン移動できる回数が残っていても強制的にストップすることになる",
+           "戦闘では自身の残りHPが敵のHPより大きければ勝利する",
+           "敗北すると死亡となり" + RED + "ゲームオーバー" + RESET,
+           "勝利すると敵のHPの1/4分残りHPが減少し、敵のHPの1/2分最大HPが増加する",
+           "また、勝利時にランダムで敵がアイテムをドロップする可能性がある",
+           YELLOW + "目標" + RESET + ":マップ上の黄色の数字が警官のHPである",
+           "この警官を倒せるようになるまで敵と戦い、警官を倒そう",
+           "警官を倒した後、" + RED + "梅田駅から脱出することでクリアとなる" + RESET]
+    
+    print("---------------------チュートリアル---------------------(Enterでページ送り,sでスキップ)")
     for h in range(0,len(how),3):
         for index in range(3):
             if(h+index >= len(how)):
                 break
             print(how[h+index])
-        if(h == 0):
-            ShowBoard(board, mask, player, enemys)
+        s = input().strip()
+        if(s == "s"):
+            break
+
+def ReverseIntoroduction():
+    introduction = [YELLOW + "脱出" + RESET + ":マップ上の左側にあるGがゴール",
+                    "ゴールにピッタリ止まることで脱出成功となり、クリアである",
+                    "今まであった休憩マスや通常敵は存在しない",
+                    YELLOW + "外敵" + RESET + ":今いるマスから3マス分距離を取ると、第一空挺団が出現する",
+                    "裏面が始まった時にプレイヤーがいるマスが第一空挺団の初期位置",
+                    "第一空挺団はHPが999あり、自分の行動の終わりに1~2マス最短ルートで接近してくる",
+                    "また、今までとは異なり、マップ上にトラップが表示されているが、踏むと" + RED + "効果が発動する" + RESET,
+                    "一度踏んだトラップであっても再度効果を発動する",
+                    "マップ上のDは通常より強力なトラップを意味している。一度踏むだけでアイテムが無ければ" + RED + "打開不能になるほど強力" + RESET]
+    
+    print("---------------------裏面スタート---------------------(Enterでページ送り,sでスキップ)")
+    for h in range(0,len(introduction),3):
+        for index in range(3):
+            if(h+index >= len(introduction)):
+                break
+            print(introduction[h+index])
         s = input().strip()
         if(s == "s"):
             break
@@ -765,7 +889,8 @@ def NoWayBoard(board, enemys):
     return noway
 
 
-board1 = MakeBoard(7, 4, 4, 2)
+# メインゲームループ
+board1 = MakeBoard(7, 4, 2)
 board2 = MakeReverseBoard(7, 7, 10)
 mask1 = MaskBoard(7, 2, board1)
 mask2 = ReverseMaskBoard(7)
@@ -780,7 +905,12 @@ for i in range(3,-1, -1):
 board = board1
 mask = mask1
 
-Story(board, mask, player, enemys)
+print(f"検出されたプラットフォーム: {PLATFORM}")
+print("矢印キーでの移動が使用できます")
+print()
+
+Story()
+HowToPlay()
 
 while(True):
     noway = NoWayBoard(board, enemys)
@@ -808,8 +938,12 @@ while(True):
             for i in range(len(enemys)):
                 battle = enemys[i].SearchBattle(i, player)
                 if(battle == 1):
-                    del enemys[i]
-                    enemys.insert(i, SummonEnemy(player, i, board, enemys))
+                    if(enemys[i].devilsdog):
+                        del enemys[i]
+                        enemys.insert(i, SummonEnemy(player, 4, board, enemys))
+                    else:
+                        del enemys[i]
+                        enemys.insert(i, SummonEnemy(player, i, board, enemys))
             if(board[player.y][player.x] == HEAL):
                 player.hp = player.max_hp
                 print("休憩所マスの効果でHPが全回復した!")
@@ -832,7 +966,7 @@ while(True):
     if(player.avoid_trap == True):
         player.avoid_trap = False
     else:
-        if(mask[player.y][player.x] != 2):
+        if(mask[player.y][player.x] != 2 or player.chaka):
             Trap(player, enemys, board)
     mask[player.y][player.x] = 2
     GAME_ENDER = WinChecker(player)
@@ -851,18 +985,17 @@ while(True):
             enemys.clear()
             board = board2
             mask = mask2
+            ReverseIntoroduction()
             print("チャカを手に入れた!")
             print("あとは出入り口に戻るだけだ!")
             print("なぜか嫌な予感がする...早く脱出しよう!")
     else:
-        if(len(enemys) == 0):
-            distance = abs(player.x - 6) + abs(player.y - 3)
-            if(distance >= 3):
-                enemys.append(SummonEnemy(999, 4, board, enemys))
         for i in range(len(enemys)):
             if(enemys[i].devilsdog == True):
                 move = random.randrange(1,4)
-                #行動回数の表示
+                if(move == 3):
+                    move = 2
+                # 行動回数の表示
                 print(f"敵の行動回数:{move}")
                 for j in range(move):
                     # Moveメソッドの引数変更
@@ -871,8 +1004,12 @@ while(True):
                     for i in range(len(enemys)):
                         battle = enemys[i].SearchBattle(i, player)
                         if(battle == 1):
-                            del enemys[i]
-                            enemys.insert(i, SummonEnemy(player, i, board, enemys))
+                            if(enemys[i].devilsdog):
+                                del enemys[i]
+                                enemys.insert(i, SummonEnemy(player, 4, board, enemys))
+                            else:
+                                del enemys[i]
+                                enemys.insert(i, SummonEnemy(player, i, board, enemys))
                     # 変更点(敵の行動ごとに盤面を表示する)
                     if(j+1 != move):
                         ShowBoard(board, mask, player, enemys)
@@ -886,6 +1023,12 @@ while(True):
                     if(battle == 1):
                         del enemys[i]
                         enemys.insert(i, SummonEnemy(player, i, board, enemys))
+            
+        if(len(enemys) == 0):
+            distance = abs(player.x - 6) + abs(player.y - 3)
+            if(distance >= 3):
+                print("第一空挺団が出現!")
+                enemys.append(SummonEnemy(999, 4, board, enemys))
         
         GAME_ENDER = WinChecker(player)
         if(GAME_ENDER == 1):
