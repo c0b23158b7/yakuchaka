@@ -1,21 +1,11 @@
-# -*- coding: utf-8 -*-
 """
-A*探索を使った経路探索機能
-元のMazeAstarSearch.pyを基にゲーム用に調整
+A*経路探索アルゴリズム
 """
-
 from .constants import WALL
 
-"""
-探索木のためのノードクラス
-parentは現在のノードを親ノード
-positionはノードが表している迷路の場所
-gは経路コスト(スタートから現在の場所の移動コスト)
-hはヒューリスティックの値(目的までのコストの見積もり)
-fは親ノードの合計コスト(f = g + h)
-"""
-class Node:    
-    #クラスの初期化。最初のノードは親もない、場所もない。
+
+class Node:
+    # クラスの初期化。最初のノードは親もない、場所もない。
     def __init__(self, parent=None, position=None):
         self.parent = parent
         self.position = position
@@ -71,7 +61,7 @@ class PathFinding:
         row_no = len(board)
         column_no = len(board[0])
         
-        # ゴールノードを発見するまでのループ(まだ訪問されていないノードがある限る続く)
+        # ゴールノードを発見するまでのループ(まだ訪問されていないノードがある限るつづく)
         while len(self.queue) > 0:
             # fコストが一番低いノードは次に展開する
             current_node = self.queue[0]
@@ -121,7 +111,7 @@ class PathFinding:
                 for visited_node in self.visited:
                     if child_node.position == visited_node.position:
                         break
-                else:               
+                else:
                     # f、g、とhの値を計算
                     child_node.g = self._get_path_cost(current_node, child_node)
                     child_node.h = self._get_heuristic_cost(child_node, goal_node)
@@ -131,7 +121,7 @@ class PathFinding:
                     add_to_queue = True
                     for node in self.queue:
                         if child_node.position == node.position:
-                            # 現在のノードが以前のノードより良い経路であらばノード情報を更新
+                            # 現在のノードが以前のノードより良い経路であればノード情報を更新
                             if node.g > child_node.g:
                                 node.g = child_node.g
                                 node.f = child_node.f

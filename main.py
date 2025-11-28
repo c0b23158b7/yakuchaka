@@ -1,12 +1,15 @@
 import random
-from yakuchaka.constants import *
-from yakuchaka.player import Player
-from yakuchaka.enemy import Enemy
-from yakuchaka.board import MakeBoard, MakeReverseBoard, MaskBoard, ReverseMaskBoard
-from yakuchaka.game_utils import ShowBoard, GetItem, SummonEnemy, ShowStatus, Trap, WinChecker, Teleport, NoWayBoard
-from yakuchaka.story import Story
+import platform
 
-board1 = MakeBoard(7, 4, 4, 2)
+from yakuchaka import (
+    ITEM, HEAL, YELLOW, RESET,
+    Player,
+    MakeBoard, MakeReverseBoard, MaskBoard, ReverseMaskBoard, NoWayBoard,
+    ShowBoard, GetItem, ShowStatus, Trap, WinChecker, Teleport, SummonEnemy,
+    Story, HowToPlay, ReverseIntoroduction
+)
+
+board1 = MakeBoard(7, 4, 2)
 board2 = MakeReverseBoard(7, 7, 10)
 mask1 = MaskBoard(7, 2, board1)
 mask2 = ReverseMaskBoard(7)
@@ -21,7 +24,12 @@ for i in range(3,-1, -1):
 board = board1
 mask = mask1
 
-Story(board, mask, player, enemys)
+print(f"検出されたプラットフォーム: {platform.system()}")
+print("矢印キーでの移動が使用できます")
+print()
+
+Story()
+HowToPlay()
 
 while(True):
     noway = NoWayBoard(board, enemys)
@@ -49,8 +57,12 @@ while(True):
             for i in range(len(enemys)):
                 battle = enemys[i].SearchBattle(i, player)
                 if(battle == 1):
-                    del enemys[i]
-                    enemys.insert(i, SummonEnemy(player, i, board, enemys))
+                    if(enemys[i].devilsdog):
+                        del enemys[i]
+                        enemys.insert(i, SummonEnemy(player, 4, board, enemys))
+                    else:
+                        del enemys[i]
+                        enemys.insert(i, SummonEnemy(player, i, board, enemys))
             if(board[player.y][player.x] == HEAL):
                 player.hp = player.max_hp
                 print("休憩所マスの効果でHPが全回復した!")
@@ -74,7 +86,7 @@ while(True):
         player.avoid_trap = False
     else:
         if(mask[player.y][player.x] != 2):
-            Trap(player, enemys, board)
+            Trap(player, enemys, board, mask)
     mask[player.y][player.x] = 2
     GAME_ENDER = WinChecker(player)
     if(GAME_ENDER == 1):
@@ -92,19 +104,18 @@ while(True):
             enemys.clear()
             board = board2
             mask = mask2
+            ReverseIntoroduction()
             print("チャカを手に入れた!")
             print("あとは出入り口に戻るだけだ!")
             print("なぜか嫌な予感がする...早く脱出しよう!")
     else:
-        if(len(enemys) == 0):
-            distance = abs(player.x - 6) + abs(player.y - 3)
-            if(distance >= 3):
-                enemys.append(SummonEnemy(999, 4, board, enemys))
         for i in range(len(enemys)):
             if(enemys[i].devilsdog == True):
-                move = random.randrange(1,4)
+                move = random.randrange(1,5)
+                if(move == 4):
+                    move = 2
                 # 行動回数の表示
-                print(f"敵の行動回数:{move}")
+                print("敵の行動回数:" + YELLOW + f"{move}" + RESET)
                 for j in range(move):
                     # Moveメソッドの引数変更
                     noway = NoWayBoard(board, enemys)
@@ -112,8 +123,12 @@ while(True):
                     for i in range(len(enemys)):
                         battle = enemys[i].SearchBattle(i, player)
                         if(battle == 1):
-                            del enemys[i]
-                            enemys.insert(i, SummonEnemy(player, i, board, enemys))
+                            if(enemys[i].devilsdog):
+                                del enemys[i]
+                                enemys.insert(i, SummonEnemy(player, 4, board, enemys))
+                            else:
+                                del enemys[i]
+                                enemys.insert(i, SummonEnemy(player, i, board, enemys))
                     # 変更点(敵の行動ごとに盤面を表示する)
                     if(j+1 != move):
                         ShowBoard(board, mask, player, enemys)
@@ -127,6 +142,12 @@ while(True):
                     if(battle == 1):
                         del enemys[i]
                         enemys.insert(i, SummonEnemy(player, i, board, enemys))
+            
+        if(len(enemys) == 0):
+            distance = abs(player.x - 6) + abs(player.y - 3)
+            if(distance >= 3):
+                print("第一空挺団が出現!")
+                enemys.append(SummonEnemy(999, 4, board, enemys))
         
         GAME_ENDER = WinChecker(player)
         if(GAME_ENDER == 1):
